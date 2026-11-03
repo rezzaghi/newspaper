@@ -20,6 +20,13 @@ On the first run the agent asks what you want to read about and whether you have
 
 The only requirement is Python 3. Everything it uses is in the standard library.
 
+**Codex users:** Codex's sandbox blocks network access by default, and newspaper needs it to fetch your feeds. Approve the fetch when Codex asks, or allow network once in `~/.codex/config.toml`:
+
+```toml
+[sandbox_workspace_write]
+network_access = true
+```
+
 ## What you get
 
 - **A ranked page** in tabs: News (ranked by how much it could change your life), Articles, Essays, Videos, and *Might surprise you*, a few great things from outside your usual interests.

@@ -27,6 +27,8 @@ Everything the reader owns is in `data/` (gitignored): `profile.md`, `feeds.opml
 
 `python newspaper.py fetch`. If it reports 0 new items, say so, run `python newspaper.py open` and stop. Mention failed feeds in one line.
 
+If it stops with `NO NETWORK`, your sandbox is blocking network access; the feeds are fine. Rerun the same command with network access (ask the user to approve running it outside the sandbox). If you can't, stop and tell the user how to allow network for your CLI (Codex: `network_access = true` under `[sandbox_workspace_write]` in `~/.codex/config.toml`). Never report a no-network run as "feeds unreachable" or "no new items".
+
 ### 3. Triage
 
 `python newspaper.py batches triage` prints one input path per batch. Each batch is a subtask: "Follow the instructions in prompts/triage.md. Input: `<path>`. Output: `<same path with _in_ replaced by _out_>`."
