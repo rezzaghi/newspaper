@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Newspaper</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column, like an editor's marked-up proof. Entries are ruled, not boxed; impact and verdicts are proof marks in mono. */
+:root {
+  --bg: #F2F4F7;
+  --paper: #FFFFFF;
+  --ink: #18202E;
+  --muted: #5A6475;
+  --rule: #D8DDE5;
+  --accent: #2944C2;
+  --high: #B93D0B;
+  --medium: #946200;
+  --warn: #A3261A;
+  --up: #23744A;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10141B; --paper: #171C25; --ink: #E4E8EF; --muted: #97A1B2; --rule: #29303D;
+    --accent: #95A9FF; --high: #FF9A62; --medium: #E9BE55; --warn: #FF8A7E; --up: #6FCF97;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10141B; --paper: #171C25; --ink: #E4E8EF; --muted: #97A1B2; --rule: #29303D;
+  --accent: #95A9FF; --high: #FF9A62; --medium: #E9BE55; --warn: #FF8A7E; --up: #6FCF97;
+  color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--ink);
+  font: 400 1.0625rem/1.6 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 42rem; margin: 0 auto; padding-block: 2.5rem 4rem; display: flex; flex-direction: column; gap: 2.75rem; }
+a { color: inherit; text-decoration-color: color-mix(in srgb, var(--accent) 50%, transparent); text-underline-offset: 3px; }
+a:hover { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+.label { font: 500 0.72rem/1.3 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+header { display: flex; flex-direction: column; gap: 0.9rem; }
+h1 { font: 700 clamp(2rem, 6vw, 2.9rem)/1.05 var(--display); letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+.lede { margin: 0; font-size: 1.15rem; max-width: 36rem; }
+.stats { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; font: 400 0.85rem var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.stats b { color: var(--ink); font-weight: 500; }
+nav { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.stab { font: 500 0.85rem var(--mono); color: var(--ink); padding: 0.35rem 0.8rem; border: 1px solid var(--rule); border-radius: 999px; background: var(--paper); cursor: pointer; }
+.stab span { color: var(--muted); margin-left: 0.35rem; }
+.stab:hover { border-color: var(--muted); }
+.stab[aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.stab[aria-selected="true"] span { color: inherit; opacity: 0.7; }
+
+section { display: flex; flex-direction: column; }
+section > h2 { font: 700 1.5rem/1.2 var(--display); margin: 0; padding-bottom: 0.35rem; border-bottom: 2px solid var(--ink); }
+section > .desc { margin: 0.5rem 0 0; color: var(--muted); font-size: 0.95rem; }
+.group { font: 500 0.72rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase; margin: 1.5rem 0 0; }
+.group.high { color: var(--high); } .group.medium { color: var(--medium); }
+
+.item { display: flex; flex-direction: column; gap: 0.45rem; padding-block: 1.25rem; border-bottom: 1px solid var(--rule); min-width: 0; }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.75rem; font: 400 0.78rem var(--mono); color: var(--muted); }
+.mark { font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+.mark.high { color: var(--high); } .mark.medium { color: var(--medium); } .mark.warn { color: var(--warn); } .mark.strong { color: var(--up); }
+.item h3 { font: 600 1.2rem/1.3 var(--display); margin: 0; text-wrap: balance; overflow-wrap: anywhere; }
+.item h3 a { text-decoration: none; }
+.item h3 a:hover { text-decoration: underline; }
+.summary { margin: 0; }
+.why { margin: 0; font-style: italic; color: var(--muted); }
+.why::before { content: "Why you: "; font: 500 0.72rem var(--mono); font-style: normal; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+.detail { margin: 0.2rem 0 0; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.97rem; }
+.detail .label { color: var(--accent); }
+.detail p, .detail ul { margin: 0; }
+.detail ul { padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.25rem; }
+.why.alt::before { content: "Worth a look: "; }
+.cred { margin: 0; font-size: 0.92rem; color: var(--warn); }
+.actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 0.5rem; margin-top: 0.25rem; }
+.actions a { font: 400 0.8rem var(--mono); color: var(--muted); margin-right: auto; }
+.vote { --icon-fill: none; display: inline-grid; place-items: center; flex: none; width: 2rem; height: 2rem; color: var(--muted); background: transparent; border: 1px solid var(--rule); border-radius: 999px; cursor: pointer; padding: 0; }
+.vote:hover { color: var(--ink); border-color: var(--muted); }
+.vote[aria-pressed="true"].up { --icon-fill: currentColor; color: var(--up); border-color: var(--up); }
+.vote.failed { color: var(--warn); border-color: var(--warn); }
+.vote[aria-pressed="true"].down { --icon-fill: currentColor; color: var(--warn); border-color: var(--warn); }
+[hidden] { display: none !important; }
+.view { display: flex; flex-direction: column; gap: 2.75rem; }
+.view[hidden] { display: none; }
+.tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--rule); overflow-x: auto; scrollbar-width: none; }
+.tab { white-space: nowrap; flex: none; font: 500 0.9rem var(--mono); color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 0.5rem 0.75rem; cursor: pointer; }
+.tab span { margin-left: 0.3rem; font-weight: 400; }
+@media (max-width: 480px) { .tab { padding: 0.5rem 0.4rem; font-size: 0.8rem; } }
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.flag { --flag-fill: none; flex: none; display: inline-grid; place-items: center; width: 2rem; height: 2rem; color: var(--muted); background: transparent; border: 1px solid var(--rule); border-radius: 999px; cursor: pointer; padding: 0; }
+.flag:hover { color: var(--accent); border-color: var(--accent); }
+.flag[aria-pressed="true"] { --flag-fill: currentColor; color: var(--accent); border-color: var(--accent); }
+.flag.failed { color: var(--warn); border-color: var(--warn); }
+.flag:disabled { opacity: 0.5; cursor: progress; }
+.vote:disabled { opacity: 0.5; cursor: progress; }
+
+.empty { margin: 1rem 0 0; color: var(--muted); }
+.samples { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.95rem; }
+.choice { font: 500 0.8rem var(--mono); color: var(--muted); background: transparent; border: 1px solid var(--rule); border-radius: 999px; padding: 0.35rem 0.8rem; cursor: pointer; }
+.choice:hover { color: var(--ink); border-color: var(--muted); }
+.choice.add[aria-pressed="true"] { color: var(--bg); background: var(--up); border-color: var(--up); }
+.choice.skip[aria-pressed="true"] { color: var(--bg); background: var(--muted); border-color: var(--muted); }
+.choice.failed { color: var(--warn); border-color: var(--warn); }
+.choice:disabled { opacity: 0.5; cursor: progress; }
+details { border-top: 1px solid var(--rule); padding-top: 1rem; }
+summary { cursor: pointer; font: 500 0.9rem var(--mono); }
+.reasons { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1rem 0; font: 400 0.78rem var(--mono); color: var(--muted); }
+.reasons span { padding: 0.15rem 0.55rem; border: 1px solid var(--rule); border-radius: 999px; }
+.dropped { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.92rem; }
+.dropped li { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; overflow-wrap: anywhere; }
+.dropped .why-dropped { font: 400 0.75rem var(--mono); color: var(--muted); }
+footer { font: 400 0.78rem var(--mono); color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { a, .vote, .flag, .tab { transition: color .15s, border-color .15s; } }
+#unsynced { color: var(--warn); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="label" id="when">Newspaper</div>
+    <div class="tabs" role="tablist" aria-label="Views">
+      <button class="tab" role="tab" id="tab-digest" aria-controls="view-digest" aria-selected="true" type="button">Digest <span id="digest-count"></span></button>
+      <button class="tab" role="tab" id="tab-saved" aria-controls="view-saved" aria-selected="false" type="button">Saved <span id="saved-count">0</span></button>
+      <button class="tab" role="tab" id="tab-feeds" aria-controls="view-feeds" aria-selected="false" type="button">Suggested feeds <span id="feeds-count">0</span></button>
+    </div>
+  </header>
+  <div id="view-digest" role="tabpanel" aria-labelledby="tab-digest" class="view">
+    <header>
+      <h1 id="headline">Your feeds, edited</h1>
+      <p class="lede" id="intro"></p>
+      <div class="stats" id="stats"></div>
+      <nav id="nav" role="tablist" aria-label="Sections"></nav>
+    </header>
+    <main id="sections" class="view"></main>
+    <p class="empty" id="all-saved" hidden>Everything in this run is in Saved.</p>
+    <details id="dropped-wrap">
+      <summary id="dropped-title">Dropped items</summary>
+      <div class="reasons" id="reasons"></div>
+      <ul class="dropped" id="dropped"></ul>
+    </details>
+  </div>
+  <div id="view-saved" role="tabpanel" aria-labelledby="tab-saved" class="view" hidden>
+    <section id="saved">
+      <h2>Saved</h2>
+      <p class="desc">Kept from any run until you unflag it.</p>
+      <p class="empty" id="saved-empty">Nothing saved yet. Flag an item in the digest to keep it here.</p>
+    </section>
+  </div>
+  <div id="view-feeds" role="tabpanel" aria-labelledby="tab-feeds" class="view" hidden>
+    <section id="feeds">
+      <h2>Suggested feeds</h2>
+      <p class="desc">New sources picked for you. Add or skip; the next run applies your choice.</p>
+      <p class="empty" id="feeds-empty">No suggestions right now. New ones show up about once a week.</p>
+    </section>
+  </div>
+  <footer><span id="footer">Votes teach the next run what you like. Saved items stay across runs.</span> <span id="unsynced" hidden></span></footer>
+</div>
+
+<script type="application/json" id="digest">__DIGEST_JSON__</script>
+<script>
+(() => {
+  const data = JSON.parse(document.getElementById("digest").textContent);
+  const h = (tag, attrs = {}, ...kids) => {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v == null || v === false) continue;
+      if (k === "class") el.className = v; else el.setAttribute(k, v);
+    }
+    for (const kid of kids.flat()) if (kid != null && kid !== "") el.append(kid);
+    return el;
+  };
+  const FLAG = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M5 21V4h11l-1.5 4L16 12H5" fill="var(--flag-fill)" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+
+  const SECTIONS = [
+    { key: "news", title: "News", desc: "Ranked by how much it could change your life." },
+    { key: "article", title: "Articles", desc: "Ideas, explainers and research worth the time." },
+    { key: "essay", title: "Essays", desc: "Arguments, critiques and criticism." },
+    { key: "video", title: "Videos", desc: "Judged from descriptions and reception." },
+    { key: "surprise", title: "Might surprise you", desc: "From outside your usual interests, chosen because they are good." },
+  ];
+  const when = new Date(data.generated_at);
+  document.getElementById("when").textContent = "Newspaper · " +when.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  document.getElementById("intro").textContent = data.intro || "";
+  document.getElementById("stats").append(
+    h("span", {}, h("b", {}, String(data.scanned)), " scanned"),
+    h("span", {}, h("b", {}, String(data.feeds)), " feeds"),
+    h("span", {}, h("b", {}, String(data.items.length)), " kept"),
+    h("span", {}, h("b", {}, String(data.dropped.length)), " dropped"),
+  );
+
+  // Tabs: the last one viewed is remembered per browser.
+  const tabs = { digest: document.getElementById("tab-digest"), saved: document.getElementById("tab-saved"), feeds: document.getElementById("tab-feeds") };
+  const show = (name) => {
+    for (const [k, t] of Object.entries(tabs)) {
+      t.setAttribute("aria-selected", String(k === name));
+      document.getElementById("view-" + k).hidden = k !== name;
+    }
+    try { localStorage.setItem("newspaper-tab", name); } catch (e) {}
+  };
+  for (const [k, t] of Object.entries(tabs)) t.addEventListener("click", () => show(k));
+  try { const last = localStorage.getItem("newspaper-tab"); if (tabs[last]) show(last); } catch (e) {}
+
+  const THUMB = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M7 10v11H3V10zM7 10l4-8a3 3 0 0 1 3 3v4h5.5a2 2 0 0 1 2 2.3l-1.4 8A2 2 0 0 1 18.1 21H7" fill="var(--icon-fill)" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>';
+  const voteButton = (dir) => {
+    const label = dir === "up" ? "Like: more like this" : "Dislike: less like this";
+    const b = h("button", { class: "vote " + dir, type: "button", "aria-pressed": "false", "aria-label": label, title: label, hidden: "" });
+    b.innerHTML = dir === "up" ? THUMB : THUMB.replace("<svg ", '<svg style="transform:rotate(180deg)" ');
+    return b;
+  };
+  const voteButtons = new Map();
+  const flagButtons = new Map();
+  const cards = new Map();
+  const flagButton = (saved) => {
+    const b = h("button", { class: "flag", type: "button", "aria-pressed": String(saved), hidden: saved ? null : "" });
+    b.innerHTML = FLAG;
+    const label = saved ? "Remove from saved" : "Save for later";
+    b.setAttribute("aria-label", label);
+    b.title = label;
+    return b;
+  };
+  const card = (it, opts = {}) => {
+    const marks = [];
+    if (it.section === "news" && (it.impact === "high" || it.impact === "medium"))
+      marks.push(h("span", { class: "mark " + it.impact }, it.impact === "high" ? "High impact" : "Medium impact"));
+    if (it.credibility === "disputed" || it.credibility === "unverified")
+      marks.push(h("span", { class: "mark warn" }, it.credibility));
+    if (it.quality === "strong") marks.push(h("span", { class: "mark strong" }, "Strong"));
+    const flag = flagButton(!!opts.saved);
+    let votes = [];
+    if (opts.saved) {
+      flag.dataset.id = it.id;
+    } else {
+      const up = voteButton("up");
+      const down = voteButton("down");
+      voteButtons.set(it.id, { up, down, it });
+      flagButtons.set(it.id, { flag, it });
+      votes = [up, down];
+    }
+    const el = h("article", { class: "item" },
+      h("div", { class: "meta" },
+        it.section === "surprise" && it.format ? h("span", { class: "mark" }, it.format) : null,
+        h("span", {}, it.source || ""),
+        it.read_minutes ? h("span", {}, `${it.read_minutes} min`) : null,
+        marks),
+      h("h3", {}, h("a", { href: it.link, target: "_blank", rel: "noopener" }, it.title)),
+      h("p", { class: "summary" }, it.summary || ""),
+      it.why_you ? h("p", { class: it.section === "surprise" ? "why alt" : "why" }, it.why_you) : null,
+      it.changes ? h("div", { class: "detail" }, h("span", { class: "label" }, "Does it change anything?"), h("p", {}, it.changes)) : null,
+      it.arguments?.length ? h("div", { class: "detail" }, h("span", { class: "label" }, "Main arguments"), h("ul", {}, it.arguments.map((a) => h("li", {}, a)))) : null,
+      it.conclusion ? h("div", { class: "detail" }, h("span", { class: "label" }, "Conclusion"), h("p", {}, it.conclusion)) : null,
+      it.credibility_note && it.credibility !== "confirmed" ? h("p", { class: "cred" }, it.credibility_note) : null,
+      h("div", { class: "actions" },
+        it.comments ? h("a", { href: it.comments, target: "_blank", rel: "noopener" }, "Discussion") : h("span", { style: "margin-right:auto" }),
+        votes, flag),
+    );
+    if (!opts.saved) cards.set(it.id, el);
+    return el;
+  };
+
+  const main = document.getElementById("sections");
+  const nav = document.getElementById("nav");
+  const sectionEls = [];
+  for (const s of SECTIONS) {
+    const items = data.items.filter((i) => (i.section || "article") === s.key);
+    if (!items.length) continue;
+    const link = h("button", { class: "stab", type: "button", role: "tab", id: "stab-" + s.key, "aria-controls": s.key, "aria-selected": "false" }, s.title, h("span", {}, String(items.length)));
+    link.addEventListener("click", () => { active = s.key; try { localStorage.setItem("newspaper-section", s.key); } catch (e) {} showSection(); });
+    nav.append(link);
+    const sec = h("section", { id: s.key, role: "tabpanel", "aria-labelledby": "stab-" + s.key }, h("h2", {}, s.title), h("p", { class: "desc" }, s.desc));
+    if (s.key === "news") {
+      for (const level of ["high", "medium"]) {
+        const group = items.filter((i) => (i.impact || "medium") === level);
+        if (!group.length) continue;
+        const label = h("p", { class: "group " + level }, level === "high" ? "Could change your life" : "Worth knowing");
+        sec.append(label, ...group.map(card));
+        sectionEls.push({ sec: label, ids: group.map((i) => i.id) });
+      }
+    } else {
+      sec.append(...items.map(card));
+    }
+    main.append(sec);
+    sectionEls.push({ sec, link, key: s.key, ids: items.map((i) => i.id) });
+  }
+  // One section is shown at a time; the last one picked is remembered per browser.
+  let active = null;
+  try { active = localStorage.getItem("newspaper-section"); } catch (e) {}
+  const showSection = () => {
+    const tabs = sectionEls.filter((e) => e.link);
+    if (!tabs.some((e) => e.key === active && e.n !== 0)) active = (tabs.find((e) => e.n !== 0) || {}).key;
+    for (const e of tabs) {
+      const on = e.key === active;
+      e.link.setAttribute("aria-selected", String(on));
+      e.link.tabIndex = on ? 0 : -1;
+      e.sec.hidden = !on || e.n === 0;
+    }
+  };
+  nav.addEventListener("keydown", (ev) => {
+    if (ev.key !== "ArrowRight" && ev.key !== "ArrowLeft") return;
+    const tabs = [...nav.querySelectorAll(".stab:not([hidden])")];
+    const i = tabs.indexOf(document.activeElement);
+    if (i < 0) return;
+    const next = tabs[(i + (ev.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+    next.focus(); next.click();
+  });
+  if (!data.items.length) main.append(h("p", { class: "empty" }, "Every new item this run was dropped. The list below says why."));
+
+  const counts = {};
+  for (const d of data.dropped) counts[d.reason] = (counts[d.reason] || 0) + 1;
+  document.getElementById("dropped-title").textContent = `${data.dropped.length} dropped, and why`;
+  document.getElementById("reasons").append(
+    ...Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([r, n]) => h("span", {}, `${r} ${n}`)));
+  document.getElementById("dropped").append(...data.dropped.map((d) =>
+    h("li", {},
+      h("a", { href: d.link, target: "_blank", rel: "noopener" }, d.title),
+      h("span", { class: "why-dropped" }, [d.source, d.reason, d.note].filter(Boolean).join(" · ")))));
+  if (!data.dropped.length) document.getElementById("dropped-wrap").hidden = true;
+
+  // Suggested feeds: Add or Skip is stored; the next /feed run applies it to feeds.opml.
+  const suggestions = data.suggestions || [];
+  const choiceButtons = new Map();
+  const feedsSec = document.getElementById("feeds");
+  for (const sg of suggestions) {
+    const add = h("button", { class: "choice add", type: "button", "aria-pressed": "false", hidden: "" }, "Add to my feeds");
+    const skip = h("button", { class: "choice skip", type: "button", "aria-pressed": "false", hidden: "" }, "Skip");
+    choiceButtons.set(sg.id, { add, skip, sg });
+    const per = (n, unit) => `~${n} post${n === 1 ? "" : "s"} a ${unit}`;
+    const rate = sg.per_week == null ? null : sg.per_week >= 1 ? per(Math.round(sg.per_week), "week") : sg.per_week * 4.3 >= 1 ? per(Math.round(sg.per_week * 4.3), "month") : per(Math.max(1, Math.round(sg.per_week * 52)), "year");
+    feedsSec.append(h("article", { class: "item" },
+      h("div", { class: "meta" }, sg.format ? h("span", { class: "mark" }, sg.format) : null, h("span", {}, sg.interest || ""), rate ? h("span", {}, rate) : null),
+      h("h3", {}, h("a", { href: sg.site || sg.feed_url, target: "_blank", rel: "noopener" }, sg.name)),
+      h("p", { class: "summary" }, sg.why || ""),
+      (sg.samples || []).length ? h("div", { class: "detail" }, h("span", { class: "label" }, "Recent posts"),
+        h("ul", { class: "samples" }, sg.samples.slice(0, 5).map((a) => h("li", {}, h("a", { href: a.link, target: "_blank", rel: "noopener" }, a.title))))) : null,
+      h("div", { class: "actions" }, h("span", { style: "margin-right:auto" }), add, skip)));
+  }
+  const paintFeeds = (decisions) => {
+    let pending = 0;
+    for (const [id, { add, skip }] of choiceButtons) {
+      const d = decisions.get(id);
+      add.setAttribute("aria-pressed", String(d === "add"));
+      skip.setAttribute("aria-pressed", String(d === "skip"));
+      if (!d) pending++;
+    }
+    document.getElementById("feeds-count").textContent = String(pending);
+    document.getElementById("feeds-empty").hidden = !!suggestions.length;
+  };
+  paintFeeds(new Map());
+
+  // Local backend: the same doc/collection calls as the claude.ai db, stored by `newspaper.py serve`
+  // in data/state/<collection>.json. Changes made while the server is down wait in this browser and
+  // are sent as soon as it is reachable again, so a click is never lost.
+  const localDb = () => {
+    const QUEUE = "newspaper-unsynced";
+    const readQueue = () => { try { return JSON.parse(localStorage.getItem(QUEUE) || "[]"); } catch (e) { return []; } };
+    const writeQueue = (q) => { try { localStorage.setItem(QUEUE, JSON.stringify(q)); } catch (e) {} };
+    const cache = {}, listeners = {};
+    const hint = () => {
+      const n = readQueue().length;
+      const el = document.getElementById("unsynced");
+      el.hidden = !n;
+      el.textContent = `${n} change${n === 1 ? "" : "s"} not saved yet: run /feed to start the page server.`;
+    };
+    const send = async ({ col, id, doc }) => {
+      const r = await fetch(`/api/${col}/${encodeURIComponent(id)}`, doc
+        ? { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(doc) }
+        : { method: "DELETE" });
+      if (!r.ok) throw new Error(String(r.status));
+    };
+    let flushing = false;
+    const flush = async () => {
+      if (flushing) return;
+      flushing = true;
+      try {
+        for (let q = readQueue(); q.length; q = readQueue()) {
+          await send(q[0]);
+          writeQueue(readQueue().slice(1));
+        }
+      } catch (e) {} finally { flushing = false; hint(); }
+    };
+    const emit = (col, removed = []) => {
+      const docs = [...cache[col]].map(([id, d]) => ({ id, data: () => d }));
+      const snap = { docs, docChanges: () => removed.map((id) => ({ type: "removed", doc: { id } })) };
+      for (const cb of listeners[col] || []) cb(snap);
+    };
+    const change = (col, id, doc) => {
+      writeQueue([...readQueue().filter((op) => op.col !== col || op.id !== id), { col, id, doc }]);
+      const had = cache[col]?.has(id);
+      if (cache[col]) { doc ? cache[col].set(id, doc) : cache[col].delete(id); emit(col, !doc && had ? [id] : []); }
+      flush();
+    };
+    setInterval(flush, 15000);
+    addEventListener("focus", flush);
+    hint();
+    flush();
+    return {
+      doc: (path) => {
+        const [col, id] = path.split("/");
+        return { set: async (doc) => change(col, id, doc), delete: async () => change(col, id, null) };
+      },
+      collection: (col) => ({
+        onSnapshot: (cb) => {
+          (listeners[col] ||= []).push(cb);
+          fetch(`/api/${col}`).then((r) => r.ok ? r.json() : {}).catch(() => ({})).then((server) => {
+            const docs = new Map(Object.entries(server));
+            for (const op of readQueue()) if (op.col === col) op.doc ? docs.set(op.id, op.doc) : docs.delete(op.id);
+            cache[col] = docs;
+            emit(col);
+          });
+        },
+      }),
+    };
+  };
+
+  // Votes are stored where the next /feed run can read them: data/state/votes.json, or the db on claude.ai.
+  const paint = (id, vote) => {
+    const b = voteButtons.get(id);
+    if (!b) return;
+    b.up.setAttribute("aria-pressed", String(vote === "up"));
+    b.down.setAttribute("aria-pressed", String(vote === "down"));
+  };
+  // Saved items keep a copy of the item, so the Saved tab outlives the run that produced it.
+  // A saved item is hidden from the digest and shown only in the Saved tab.
+  const FIELDS = ["id", "title", "link", "comments", "source", "section", "format", "impact", "summary", "why_you", "changes", "arguments", "conclusion", "quality", "credibility", "credibility_note", "read_minutes"];
+  const savedSec = document.getElementById("saved");
+  const paintSaved = (saved) => {
+    for (const [id, el] of cards) el.hidden = saved.has(id);
+    let left = 0;
+    for (const { sec, link, ids } of sectionEls) {
+      const n = ids.filter((id) => !saved.has(id)).length;
+      if (link) { link.hidden = !n; link.lastChild.textContent = String(n); left += n; sectionEls.find((e) => e.link === link).n = n; }
+      else sec.hidden = !n;
+    }
+    showSection();
+    document.getElementById("headline").textContent = left ? `${left} worth your time` : data.items.length ? "All caught up" : "Nothing worth your time";
+    document.getElementById("digest-count").textContent = String(left);
+    document.getElementById("all-saved").hidden = !(data.items.length && !left);
+    savedSec.querySelectorAll(".item").forEach((el) => el.remove());
+    const docs = [...saved.values()].sort((a, b) => (b.saved_at || "").localeCompare(a.saved_at || ""));
+    savedSec.append(...docs.map((it) => card(it, { saved: true })));
+    document.getElementById("saved-empty").hidden = !!docs.length;
+    document.getElementById("saved-count").textContent = String(docs.length);
+  };
+  paintSaved(new Map());
+  (async () => {
+    const db = (window.claude?.use ? await window.claude.use("db").catch(() => null) : null) || localDb();
+    const saved = new Map();
+    const toggleSave = async (it, btn) => {
+      const ref = db.doc("saved/" + it.id);
+      btn.disabled = true;
+      try {
+        if (saved.has(it.id)) {
+          await ref.delete();
+          saved.delete(it.id);
+        } else {
+          const doc = Object.fromEntries(FIELDS.filter((k) => it[k] != null).map((k) => [k, it[k]]));
+          doc.saved_at = new Date().toISOString();
+          await ref.set(doc);
+          saved.set(it.id, doc);
+        }
+        paintSaved(saved);
+      } catch (e) {
+        btn.title = "Couldn't save, try again";
+        btn.classList.add("failed");
+      } finally {
+        btn.disabled = false;
+      }
+    };
+    savedSec.addEventListener("click", (e) => {
+      const btn = e.target.closest("button.flag");
+      if (btn) toggleSave(saved.get(btn.dataset.id), btn);
+    });
+    db.collection("saved").onSnapshot((snap) => {
+      saved.clear();
+      for (const d of snap.docs) saved.set(d.id, { ...d.data(), id: d.id });
+      paintSaved(saved);
+    }, () => {});
+    for (const [, { flag, it }] of flagButtons) {
+      flag.addEventListener("click", () => toggleSave(it, flag));
+      flag.hidden = false;
+    }
+    const current = new Map();
+    const decisions = new Map();
+    db.collection("feed_decisions").onSnapshot((snap) => {
+      decisions.clear();
+      for (const d of snap.docs) decisions.set(d.id, d.data().decision);
+      paintFeeds(decisions);
+    }, () => {});
+    for (const [id, { add, skip, sg }] of choiceButtons) {
+      const decide = async (choice, btn) => {
+        const ref = db.doc("feed_decisions/" + id);
+        add.disabled = skip.disabled = true;
+        try {
+          if (decisions.get(id) === choice) { await ref.delete(); decisions.delete(id); }
+          else { await ref.set({ decision: choice, name: sg.name, feed_url: sg.feed_url, at: new Date().toISOString() }); decisions.set(id, choice); }
+          paintFeeds(decisions);
+        } catch (e) {
+          btn.title = "Couldn't save, try again";
+          btn.classList.add("failed");
+        } finally {
+          add.disabled = skip.disabled = false;
+        }
+      };
+      add.addEventListener("click", () => decide("add", add));
+      skip.addEventListener("click", () => decide("skip", skip));
+      add.hidden = skip.hidden = false;
+    }
+    db.collection("votes").onSnapshot((snap) => {
+      for (const d of snap.docs) { current.set(d.id, d.data().vote); paint(d.id, d.data().vote); }
+      for (const c of snap.docChanges()) if (c.type === "removed") { current.delete(c.doc.id); paint(c.doc.id, null); }
+    }, () => {});
+    for (const [id, { up, down, it }] of voteButtons) {
+      const cast = async (vote, btn) => {
+        const ref = db.doc("votes/" + id);
+        const next = current.get(id) === vote ? null : vote;
+        up.disabled = down.disabled = true;
+        try {
+          if (next) await ref.set({ vote: next, title: it.title, source: it.source || "", section: it.section || "", link: it.link || "", at: new Date().toISOString() });
+          else await ref.delete();
+          next ? current.set(id, next) : current.delete(id);
+          paint(id, next);
+        } catch (e) {
+          btn.title = "Couldn't save, try again";
+          btn.classList.add("failed");
+        } finally {
+          up.disabled = down.disabled = false;
+        }
+      };
+      up.addEventListener("click", () => cast("up", up));
+      down.addEventListener("click", () => cast("down", down));
+      up.hidden = down.hidden = false;
+    }
+  })();
+})();
+</script>
+</body>
+</html>
