@@ -544,7 +544,8 @@ class PageHandler(BaseHTTPRequestHandler):
                 return self.reply(200, PAGE.read_bytes(), "text/html")
             return self.reply(200, "<p>No paper yet. Run /feed in your agent CLI.</p>", "text/html")
         if path == "/api/ping":
-            return self.reply(200, json.dumps({"app": "newspaper", "pid": os.getpid(), "version": VERSION}))
+            return self.reply(200, json.dumps({"app": "newspaper", "pid": os.getpid(), "version": VERSION,
+                                               "writable": can_write()}))
         file, doc_id = self.route()
         if not file or doc_id:
             return self.reply(404, "{}")
@@ -579,6 +580,16 @@ class PageHandler(BaseHTTPRequestHandler):
         pass
 
 
+def can_write():
+    """False when the server was started inside an agent's sandbox, where it can't save the page's clicks."""
+    try:
+        STATE.mkdir(parents=True, exist_ok=True)
+        (STATE / ".write_test").write_text("ok", encoding="utf-8")
+        return True
+    except OSError:
+        return False
+
+
 def server_info(port):
     try:
         with urlopen(f"http://127.0.0.1:{port}/api/ping", timeout=1) as r:
@@ -605,7 +616,7 @@ def cmd_serve(args):
 def cmd_open(args):
     url = page_url(args.port)
     info = server_info(args.port)
-    if info and info.get("version") != VERSION:
+    if info and (info.get("version") != VERSION or not info.get("writable", True)):
         if not info.get("pid"):
             sys.exit(f"an old newspaper server is running on port {args.port}; stop it (or restart the computer) and run this again")
         os.kill(info["pid"], signal.SIGTERM)

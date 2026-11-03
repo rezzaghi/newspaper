@@ -57,7 +57,7 @@ Then `python newspaper.py render`.
 
 ### 6. Open the page and finish
 
-1. `python newspaper.py open` starts the page server in the background if it isn't running, opens the browser and prints the URL. The page's votes, saved items and feed choices are stored in `data/state/` through that server.
+1. `python newspaper.py open` starts the page server in the background if it isn't running, opens the browser and prints the URL. The page's votes, saved items and feed choices are stored in `data/state/` through that server. **Always run this command outside any sandbox** (in Codex, request escalated permissions for it): a browser launched from a sandbox can crash, and a server started there can't save the reader's clicks.
 2. `python newspaper.py commit` marks this run's items as seen.
 3. If `data/` is a git repository with a remote, commit `data/` with the message "Feed run <date>: <kept> kept of <scanned>" and push it.
 
