@@ -24,6 +24,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -56,6 +57,7 @@ PROFILE = DATA / "profile.md"
 PAGE = DATA / "digest.html"
 COLLECTIONS = ("votes", "saved", "feed_decisions")  # written by the page through the server
 PORT = 8765
+VERSION = str(Path(__file__).stat().st_mtime_ns)  # a running server older than this code gets restarted
 HOST = "newspaper.localhost"  # browsers send any *.localhost name to this machine, no hosts file needed
 UA = "Mozilla/5.0 (compatible; newspaper/1.0; personal RSS reader)"
 ATOM = "{http://www.w3.org/2005/Atom}"
@@ -273,6 +275,11 @@ def cmd_fetch(_):
             i["published"] = i["published"].isoformat() if i["published"] else None
             items.append(i)
             per_source[source] = per_source.get(source, 0) + 1
+    if feeds and len(errors) == len(feeds):
+        for source, err in errors.items():
+            print(f"  FAILED {source}: {err}")
+        sys.exit("NO NETWORK: every feed failed, so this is a network problem, not the feeds. "
+                 "If your CLI runs commands in a sandbox, rerun this command with network access.")
     items.sort(key=lambda i: i["published"] or "", reverse=True)
     save(NEW, {"fetched_at": now().isoformat(), "feeds": len(feeds), "items": items, "errors": errors})
     print(f"{len(items)} new items from {len(feeds)} feeds")
@@ -537,7 +544,7 @@ class PageHandler(BaseHTTPRequestHandler):
                 return self.reply(200, PAGE.read_bytes(), "text/html")
             return self.reply(200, "<p>No paper yet. Run /feed in your agent CLI.</p>", "text/html")
         if path == "/api/ping":
-            return self.reply(200, '{"app": "newspaper"}')
+            return self.reply(200, json.dumps({"app": "newspaper", "pid": os.getpid(), "version": VERSION}))
         file, doc_id = self.route()
         if not file or doc_id:
             return self.reply(404, "{}")
@@ -572,12 +579,18 @@ class PageHandler(BaseHTTPRequestHandler):
         pass
 
 
-def server_up(port):
+def server_info(port):
     try:
         with urlopen(f"http://127.0.0.1:{port}/api/ping", timeout=1) as r:
-            return json.loads(r.read()).get("app") == "newspaper"
+            info = json.loads(r.read())
+            return info if info.get("app") == "newspaper" else None
     except Exception:
-        return False
+        return None
+
+
+def port_busy(port):
+    with socket.socket() as s:
+        return s.connect_ex(("127.0.0.1", port)) == 0
 
 
 def page_url(port):
@@ -591,10 +604,19 @@ def cmd_serve(args):
 
 def cmd_open(args):
     url = page_url(args.port)
-    if not server_up(args.port):
-        with socket.socket() as s:
-            if s.connect_ex(("127.0.0.1", args.port)) == 0:
-                sys.exit(f"port {args.port} is used by another program; try --port {args.port + 1}")
+    info = server_info(args.port)
+    if info and info.get("version") != VERSION:
+        if not info.get("pid"):
+            sys.exit(f"an old newspaper server is running on port {args.port}; stop it (or restart the computer) and run this again")
+        os.kill(info["pid"], signal.SIGTERM)
+        for _ in range(50):
+            if not port_busy(args.port):
+                break
+            time.sleep(0.1)
+        info = None
+    if not info:
+        if port_busy(args.port):
+            sys.exit(f"port {args.port} is used by another program; try --port {args.port + 1}")
         cmd = [sys.executable, str(ROOT / "newspaper.py"), "serve", "--port", str(args.port)]
         quiet = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
         if os.name == "nt":
@@ -602,7 +624,7 @@ def cmd_open(args):
         else:
             subprocess.Popen(cmd, start_new_session=True, **quiet)
         for _ in range(50):
-            if server_up(args.port):
+            if server_info(args.port):
                 break
             time.sleep(0.1)
         else:
