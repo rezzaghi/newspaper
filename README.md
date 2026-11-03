@@ -39,7 +39,7 @@ your feeds ──► fetch ──► triage ──► deep read + fact check ─
 
 - `newspaper.py` does the mechanical work: fetching feeds, batching, rendering and the page server.
 - Your agent does the judging, following `AGENTS.md` and the prompts in `prompts/`. CLIs with subagents run the batches in parallel; others work through them one by one.
-- The page is served at `http://localhost:8765` by a tiny local server, which stores your votes, saved items and feed choices in `data/state/`. If the server isn't running when you click, the page keeps your clicks and sends them once it's back.
+- The page is served at `http://newspaper.localhost:8765/feed` (any `*.localhost` name points to your own computer, no setup needed) by a tiny local server, which stores your votes, saved items and feed choices in `data/state/`. If the server isn't running when you click, the page keeps your clicks and sends them once it's back.
 
 ## Your data
 

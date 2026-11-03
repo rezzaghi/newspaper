@@ -56,6 +56,7 @@ PROFILE = DATA / "profile.md"
 PAGE = DATA / "digest.html"
 COLLECTIONS = ("votes", "saved", "feed_decisions")  # written by the page through the server
 PORT = 8765
+HOST = "newspaper.localhost"  # browsers send any *.localhost name to this machine, no hosts file needed
 UA = "Mozilla/5.0 (compatible; newspaper/1.0; personal RSS reader)"
 ATOM = "{http://www.w3.org/2005/Atom}"
 MEDIA = "{http://search.yahoo.com/mrss/}"
@@ -527,6 +528,11 @@ class PageHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         if path == "/":
+            self.send_response(302)
+            self.send_header("Location", "/feed")
+            self.send_header("Content-Length", "0")
+            return self.end_headers()
+        if path == "/feed":
             if PAGE.exists():
                 return self.reply(200, PAGE.read_bytes(), "text/html")
             return self.reply(200, "<p>No paper yet. Run /feed in your agent CLI.</p>", "text/html")
@@ -574,13 +580,17 @@ def server_up(port):
         return False
 
 
+def page_url(port):
+    return f"http://{HOST}:{port}/feed"
+
+
 def cmd_serve(args):
-    print(f"serving http://localhost:{args.port}  (Ctrl+C to stop)", flush=True)
+    print(f"serving {page_url(args.port)}  (Ctrl+C to stop)", flush=True)
     ThreadingHTTPServer(("127.0.0.1", args.port), PageHandler).serve_forever()
 
 
 def cmd_open(args):
-    url = f"http://localhost:{args.port}"
+    url = page_url(args.port)
     if not server_up(args.port):
         with socket.socket() as s:
             if s.connect_ex(("127.0.0.1", args.port)) == 0:
