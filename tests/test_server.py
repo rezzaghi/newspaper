@@ -30,7 +30,7 @@ class Server(DataTest):
         # If the server is still not answering after 10s, faulthandler prints where it is stuck.
         code = (f"import faulthandler, sys; faulthandler.dump_traceback_later(10); sys.path.insert(0, {str(ROOT)!r}); "
                 f"import newspaper as n; {patch}; print('listening', flush=True, file=sys.stderr); "
-                f"n.ThreadingHTTPServer(('127.0.0.1', {self.port}), n.PageHandler).serve_forever()")
+                f"n.PageServer(('127.0.0.1', {self.port}), n.PageHandler).serve_forever()")
         proc = subprocess.Popen([sys.executable, "-c", code], env=self.env, cwd=self.tmp,
                                 stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
         self.procs.append(proc)

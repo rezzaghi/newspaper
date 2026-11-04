@@ -12,13 +12,15 @@ import threading
 import unittest
 from datetime import datetime, timedelta, timezone
 from email.utils import format_datetime
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parent.parent
 CLI = ROOT / "newspaper.py"
 sys.path.insert(0, str(ROOT))
+
+import newspaper  # noqa: E402
 
 
 def free_port():
@@ -132,7 +134,7 @@ class FeedServer:
             def log_message(self, *args):
                 pass
 
-        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.server = newspaper.PageServer(("127.0.0.1", 0), Handler)  # skips the slow DNS lookup on macOS
         self.url = f"http://127.0.0.1:{self.server.server_address[1]}"
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
 
