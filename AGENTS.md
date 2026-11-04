@@ -4,7 +4,7 @@ A personal newspaper: the reader's own feeds, filtered and edited by you against
 
 When the user types `/feed`, `$feed`, "feed" or asks for their paper, run **Feed run** below. Keep them posted with one short line per stage. Use `python` (or `python3` if that is what exists). If neither exists, tell the user to install Python 3 from python.org and stop; nothing else needs installing.
 
-Everything the reader owns is in `data/` (gitignored): `profile.md` (what they want), `sections.md` (how their page is organized and how strictly each section is checked), `feeds.opml` and `state/`. Never edit the engine files (`newspaper.py`, `template.html`, `prompts/`) during a run.
+Everything the reader owns is in `data/` (gitignored): `profile.md`, `feeds.opml` and `state/`. Never edit the engine files (`newspaper.py`, `template.html`, `prompts/`) during a run.
 
 ## First run: no `data/profile.md` yet
 
@@ -12,23 +12,9 @@ Everything the reader owns is in `data/` (gitignored): `profile.md` (what they w
    - What do you want to read about, and what do you never want to see? A few lines in their own words is plenty.
    - Do you already follow feeds somewhere (Feedly, Inoreader, a podcast app)? If so, export an OPML file and give its path.
 2. `python newspaper.py init`, or `python newspaper.py init --opml <path>` if they gave one.
-3. Rewrite `data/profile.md` from their answers. Keep its sections (Wants, Rejects, Balance, Learned from votes): one bold-labelled line per interest saying what good looks like, keep the default Rejects, and add theirs.
-4. Ask how their page should be organized:
-   > a) Default: News · Articles · Essays · Videos · Might surprise you
-   > b) Your own: describe the sections you want in your own words, e.g. "Brazil news, CS deep dives, weekend long reads, nothing else"
-   > c) Not sure: use the default. You can change it anytime.
-
-   For a or c, keep `data/sections.md` as `init` wrote it. For b, rewrite it in the same format (see **Sections** below): one `## Title` per section in their order, a one-line description of what belongs in it, and an `order`. "A few surprises" or similar becomes a `surprise: yes` section; if they don't mention surprises, leave it out. Show the result as a short table (title, what belongs, order) and say that items fitting no section are dropped and listed at the bottom.
-5. Ask how strict to be:
-   > a) Strict (default): fact-check news, judge arguments, drop weak or disputed
-   > b) Light: only cut clickbait, promo and paywalls; no fact-checking (faster)
-   > c) Off: everything on-topic gets in, just summarized
-   > You can also mix them, e.g. "strict for Brazil, light for Tech".
-
-   Set `checks` on each section accordingly. The reader decides; don't argue them into stricter checks.
-6. Show the Wants list and the sections in a few lines and ask if anything is off; one round of fixes, then go on.
-7. If they follow fewer than 10 feeds, run the scout (see **Subtasks**) with: "Follow the instructions in prompts/scout.md. This is the reader's first run." List the picks in a few lines (name, format, why), then `python newspaper.py suggest data/state/work/scout_out.json --add`.
-8. Continue with the Feed run from step 2.
+3. Rewrite `data/profile.md` from their answers. Keep its sections (Wants, Rejects, Balance, Learned from votes): one bold-labelled line per interest saying what good looks like, keep the default Rejects, and add theirs. Show them the Wants list in a few lines and ask if anything is missing; one round of fixes, then go on.
+4. If they follow fewer than 10 feeds, run the scout (see **Subtasks**) with: "Follow the instructions in prompts/scout.md. This is the reader's first run." List the picks in a few lines (name, format, why), then `python newspaper.py suggest data/state/work/scout_out.json --add`.
+5. Continue with the Feed run from step 2.
 
 ## Feed run
 
@@ -61,11 +47,10 @@ Read every `data/state/work/read_out_*.json`. Write `data/state/digest.json`:
 {"intro": "...", "items": [ {item objects copied from read_out where keep is true} ]}
 ```
 
-- Every item's `section` must be a key from `data/state/work/sections.json`; `render` drops items with any other key and warns.
-- Order within each section by its `order` (an `impact` section puts `high` before `medium`). A section's `max` is a hard cap: keep its best items; `render` cuts the rest.
-- Merge stories the readers covered twice. Cut anything that, next to the rest, isn't worth the reader's time; that is your call as editor. Cut items are listed as "cut by editor". In a `checks: off` section, cut only duplicates: the reader asked to see everything on-topic.
+- Order within each section by how much it matters to this reader; for news, `high` before `medium`.
+- Merge stories the readers covered twice. Cut anything that, next to the rest, isn't worth the reader's time; that is your call as editor. Cut items are listed as "cut by editor".
 - Tighten `summary`, `why_you`, `changes` (news) and `arguments`/`conclusion` (articles, essays) where they are vague. Keep the fields the readers wrote.
-- **Surprise section** (`surprise: true`): items there are off-profile on purpose. Include every one that is genuinely good, up to its `max`; order them by how likely they are to delight. They don't count toward the profile's Balance rules, but its "Less" lines still apply. Don't move profile-fitting items into it.
+- **Might surprise you:** items with `section: "surprise"` are off-profile on purpose. Include every one that is genuinely good, with no fixed number; order them by how likely they are to delight. They don't count toward the profile's Balance rules, but its "Less" lines still apply. Don't move profile-fitting items into this section.
 - `intro`: two or three plain sentences: what stands out in this batch and what to read first. No hype.
 
 Then `python newspaper.py render`.
@@ -87,19 +72,6 @@ Triage batches, read batches and the scout are independent subtasks, each fully 
 
 Subtasks need web fetch (deep read) and web search (credibility check, scout). Without web search, mark credibility `unverified`, skip the scout and say so once.
 
-## Sections
-
-`data/sections.md` is the reader's page layout (the default one in `examples/sections.md` if it's missing). Each section is a `## Title` heading, a one-line description of what belongs in it, and settings as `- key: value` lines:
-
-- `order`: how to rank items, in plain words (`impact`, `importance to me`, `newest first`, `depth`…). `impact` also groups the section into "Could change your life" and "Worth knowing".
-- `checks`: `strict`, `light` or `off` (defaults to `strict`).
-- `surprise: yes`: off-profile picks chosen for quality. At most one such section.
-- `max`: the most items the section shows.
-
-`python newspaper.py sections` prints the parsed layout; run it after every edit to check it parses.
-
 ## Changing preferences
 
 When the reader says what they want more or less of ("less US politics", "more long history essays"), edit `data/profile.md`: Wants, Rejects or Balance for lasting rules. To follow or drop a source, edit `data/feeds.opml`; check a new one with `python newspaper.py probe <url>` first and use the `feed_url` it returns.
-
-When they want to change the page ("add a Podcasts section", "merge Essays into Articles", "turn off Might surprise you", "no fact-checking on Videos", "rename Tech to Deep dives and put it first", "go back to the default layout"), edit `data/sections.md` (copy `examples/sections.md` for the default), run `python newspaper.py sections`, and confirm the change in one line. It applies from the next run.

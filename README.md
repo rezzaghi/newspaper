@@ -29,8 +29,7 @@ network_access = true
 
 ## What you get
 
-- **Your page, your sections.** Describe the sections you want in your own words ("Brazil news, CS deep dives, weekend long reads"), or keep the default: News (ranked by how much it could change your life), Articles, Essays, Videos, and *Might surprise you*, a few great things from outside your usual interests. Change them anytime: "add a Podcasts section", "turn off surprises".
-- **You choose how strict.** Per section: fact-check and judge every argument, only cut clickbait and promo, or let everything on-topic in.
+- **A ranked page** in tabs: News (ranked by how much it could change your life), Articles, Essays, Videos, and *Might surprise you*, a few great things from outside your usual interests.
 - **Every pick explained.** You get a clean title, what it says, why it fits you, the main arguments and conclusion, or for news, whether it changes anything.
 - **Claims checked.** News and factual pieces are checked against discussion threads and other coverage, and disputed ones are flagged or dropped.
 - **Every drop explained.** The bottom of the page lists everything that was filtered out and why (clickbait, promo, paywall, weak argument…).
@@ -56,7 +55,6 @@ Everything that's yours lives in `data/`, which git ignores:
 | File | What it is |
 |---|---|
 | `data/profile.md` | Your rules: what you want, what you reject, the balance you like. Plain text: edit it, or tell the agent "less US politics". |
-| `data/sections.md` | Your page: its sections, what belongs in each, how they're ordered and how strictly they're checked. |
 | `data/feeds.opml` | The sources you follow. |
 | `data/state/` | What you've seen, your votes, saved items and feed suggestions. |
 
