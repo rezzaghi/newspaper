@@ -184,12 +184,13 @@ footer { font: 400 0.78rem var(--mono); color: var(--muted); }
   };
   const FLAG = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M5 21V4h11l-1.5 4L16 12H5" fill="var(--flag-fill)" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>';
 
-  // Sections come from the reader's data/sections.md, in their order.
-  const SECTIONS = (data.sections || []).map((s) => ({
-    key: s.key, title: s.title, desc: s.desc || "", surprise: !!s.surprise, byImpact: /^impact/i.test(s.order || ""),
-  }));
-  const SURPRISE = new Set(SECTIONS.filter((s) => s.surprise).map((s) => s.key));
-  const BY_IMPACT = new Set(SECTIONS.filter((s) => s.byImpact).map((s) => s.key));
+  const SECTIONS = [
+    { key: "news", title: "News", desc: "Ranked by how much it could change your life." },
+    { key: "article", title: "Articles", desc: "Ideas, explainers and research worth the time." },
+    { key: "essay", title: "Essays", desc: "Arguments, critiques and criticism." },
+    { key: "video", title: "Videos", desc: "Judged from descriptions and reception." },
+    { key: "surprise", title: "Might surprise you", desc: "From outside your usual interests, chosen because they are good." },
+  ];
   const when = new Date(data.generated_at);
   document.getElementById("when").textContent = "Newspaper · " +when.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   document.getElementById("intro").textContent = data.intro || "";
@@ -232,7 +233,7 @@ footer { font: 400 0.78rem var(--mono); color: var(--muted); }
   };
   const card = (it, opts = {}) => {
     const marks = [];
-    if (it.format === "news" && (it.impact === "high" || it.impact === "medium"))
+    if (it.section === "news" && (it.impact === "high" || it.impact === "medium"))
       marks.push(h("span", { class: "mark " + it.impact }, it.impact === "high" ? "High impact" : "Medium impact"));
     if (it.credibility === "disputed" || it.credibility === "unverified")
       marks.push(h("span", { class: "mark warn" }, it.credibility));
@@ -250,13 +251,13 @@ footer { font: 400 0.78rem var(--mono); color: var(--muted); }
     }
     const el = h("article", { class: "item" },
       h("div", { class: "meta" },
-        it.format && !(it.section || "").startsWith(it.format) ? h("span", { class: "mark" }, it.format) : null,
+        it.section === "surprise" && it.format ? h("span", { class: "mark" }, it.format) : null,
         h("span", {}, it.source || ""),
         it.read_minutes ? h("span", {}, `${it.read_minutes} min`) : null,
         marks),
       h("h3", {}, h("a", { href: it.link, target: "_blank", rel: "noopener" }, it.title)),
       h("p", { class: "summary" }, it.summary || ""),
-      it.why_you ? h("p", { class: SURPRISE.has(it.section) ? "why alt" : "why" }, it.why_you) : null,
+      it.why_you ? h("p", { class: it.section === "surprise" ? "why alt" : "why" }, it.why_you) : null,
       it.changes ? h("div", { class: "detail" }, h("span", { class: "label" }, "Does it change anything?"), h("p", {}, it.changes)) : null,
       it.arguments?.length ? h("div", { class: "detail" }, h("span", { class: "label" }, "Main arguments"), h("ul", {}, it.arguments.map((a) => h("li", {}, a)))) : null,
       it.conclusion ? h("div", { class: "detail" }, h("span", { class: "label" }, "Conclusion"), h("p", {}, it.conclusion)) : null,
@@ -273,15 +274,15 @@ footer { font: 400 0.78rem var(--mono); color: var(--muted); }
   const nav = document.getElementById("nav");
   const sectionEls = [];
   for (const s of SECTIONS) {
-    const items = data.items.filter((i) => (i.section || SECTIONS[0].key) === s.key);
+    const items = data.items.filter((i) => (i.section || "article") === s.key);
     if (!items.length) continue;
     const link = h("button", { class: "stab", type: "button", role: "tab", id: "stab-" + s.key, "aria-controls": s.key, "aria-selected": "false" }, s.title, h("span", {}, String(items.length)));
     link.addEventListener("click", () => { active = s.key; try { localStorage.setItem("newspaper-section", s.key); } catch (e) {} showSection(); });
     nav.append(link);
     const sec = h("section", { id: s.key, role: "tabpanel", "aria-labelledby": "stab-" + s.key }, h("h2", {}, s.title), h("p", { class: "desc" }, s.desc));
-    if (BY_IMPACT.has(s.key)) {
+    if (s.key === "news") {
       for (const level of ["high", "medium"]) {
-        const group = items.filter((i) => (i.impact === "high" ? "high" : "medium") === level);
+        const group = items.filter((i) => (i.impact || "medium") === level);
         if (!group.length) continue;
         const label = h("p", { class: "group " + level }, level === "high" ? "Could change your life" : "Worth knowing");
         sec.append(label, ...group.map(card));
