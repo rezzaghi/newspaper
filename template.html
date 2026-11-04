@@ -124,13 +124,39 @@ summary { cursor: pointer; font: 500 0.9rem var(--mono); }
 footer { font: 400 0.78rem var(--mono); color: var(--muted); }
 @media (prefers-reduced-motion: no-preference) { a, .vote, .flag, .tab { transition: color .15s, border-color .15s; } }
 #unsynced { color: var(--warn); }
+.masthead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+.editions { display: flex; align-items: center; gap: 0.25rem 0.9rem; font: 400 0.8rem var(--mono); color: var(--muted); }
+.editions a { color: var(--muted); text-decoration: none; }
+.editions a:hover { color: var(--accent); }
+.ed-menu { position: relative; border: 0; padding: 0; }
+.ed-menu summary { font: inherit; list-style: none; }
+.ed-menu summary::-webkit-details-marker { display: none; }
+.ed-menu summary::after { content: " \25BE"; }
+.ed-menu ol { position: absolute; right: 0; top: 1.6rem; z-index: 2; min-width: 17rem; max-width: calc(100vw - 32px);
+  list-style: none; margin: 0; padding: 0.35rem 0; background: var(--paper); border: 1px solid var(--rule); border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18); }
+.ed-menu li a { display: flex; justify-content: space-between; gap: 1rem; padding: 0.4rem 0.8rem; color: var(--ink); white-space: nowrap; }
+.ed-menu li a span { color: var(--muted); }
+.ed-menu li a[aria-current="page"] { color: var(--accent); }
+.ed-menu li a[aria-current="page"]::before { content: "\25CF "; }
+.old-edition { margin: 0; padding: 0.6rem 0.9rem; border: 1px solid var(--rule); border-left: 3px solid var(--medium);
+  border-radius: 4px; background: var(--paper); font-size: 0.95rem; }
+.old-edition a { color: var(--accent); white-space: nowrap; }
 </style>
 </head>
 <body>
 
 <div class="wrap">
   <header>
-    <div class="label" id="when">Newspaper</div>
+    <div class="masthead">
+      <div class="label" id="when">Newspaper</div>
+      <nav class="editions" id="editions" aria-label="Editions" hidden>
+        <a id="older" href="#">‹ Older</a>
+        <a id="newer" href="#">Newer ›</a>
+        <details class="ed-menu" id="ed-menu"><summary>Editions</summary><ol id="ed-list"></ol></details>
+      </nav>
+    </div>
+    <p class="old-edition" id="old-edition" hidden></p>
     <div class="tabs" role="tablist" aria-label="Views">
       <button class="tab" role="tab" id="tab-digest" aria-controls="view-digest" aria-selected="true" type="button">Digest <span id="digest-count"></span></button>
       <button class="tab" role="tab" id="tab-saved" aria-controls="view-saved" aria-selected="false" type="button">Saved <span id="saved-count">0</span></button>
@@ -192,8 +218,37 @@ footer { font: 400 0.78rem var(--mono); color: var(--muted); }
     { key: "podcast", title: "Podcasts", desc: "Episodes worth the listen, judged from show notes and reception." },
     { key: "surprise", title: "Might surprise you", desc: "From outside your usual interests, chosen because they are good." },
   ];
-  const when = new Date(data.generated_at);
+  const when = new Date(data.fetched_at || data.generated_at);
   document.getElementById("when").textContent = "Newspaper · " +when.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+  // Editions: the last runs, newest first. Only the local page server can serve them, so the switcher stays
+  // hidden elsewhere (a file opened from disk, claude.ai).
+  const editions = data.editions || [];
+  const at = editions.findIndex((e) => e.id === data.edition);
+  if (at >= 0 && editions.length > 1 && location.pathname.startsWith("/feed")) {
+    const href = (i) => (i === 0 ? "/feed" : "/feed/" + editions[i].id);
+    const day = (d) => {
+      const days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / 864e5);
+      return days === 0 ? "Today" : days === 1 ? "Yesterday" : d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+    };
+    const label = (e) => {
+      const d = new Date(e.fetched_at);
+      return `${day(d)}, ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+    };
+    const older = document.getElementById("older"), newer = document.getElementById("newer");
+    if (at < editions.length - 1) older.href = href(at + 1); else older.hidden = true;
+    if (at > 0) newer.href = href(at - 1); else newer.hidden = true;
+    document.getElementById("ed-list").append(...editions.map((e, i) =>
+      h("li", {}, h("a", { href: href(i), "aria-current": i === at ? "page" : null },
+        label(e), h("span", {}, `${e.kept} kept · ${e.scanned}`)))));
+    document.getElementById("editions").hidden = false;
+    if (at > 0) {
+      const banner = document.getElementById("old-edition");
+      banner.append(`An earlier edition, from ${label(editions[at]).replace(/^(Today|Yesterday)/, (w) => w.toLowerCase())}. `,
+        h("a", { href: "/feed" }, "Latest edition →"));
+      banner.hidden = false;
+    }
+  }
   document.getElementById("intro").textContent = data.intro || "";
   document.getElementById("stats").append(
     h("span", {}, h("b", {}, String(data.scanned)), " scanned"),

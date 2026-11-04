@@ -6,7 +6,7 @@ Everything the reader owns lives in data/ (or $NEWSPAPER_DATA): profile, feeds, 
   python newspaper.py fetch               new unseen items -> data/state/new_items.json
   python newspaper.py batches triage      split new items into triage batches
   python newspaper.py batches read        split items kept by triage into deep-read batches
-  python newspaper.py render              data/state/digest.json + template.html -> data/digest.html
+  python newspaper.py render              data/state/digest.json -> this run's edition and data/digest.html
   python newspaper.py commit              mark this run's items as seen, log kept items, clear work files
   python newspaper.py votes [--mark]      votes from the page not learned from yet (--mark: learned)
   python newspaper.py apply-decisions     apply Add/Skip choices from the page's Suggested feeds tab
@@ -55,6 +55,8 @@ VOTES_APPLIED = STATE / "votes_applied.json"
 OPML = DATA / "feeds.opml"
 PROFILE = DATA / "profile.md"
 PAGE = DATA / "digest.html"
+EDITIONS = DATA / "editions"  # one page per run, the newest KEEP_EDITIONS kept
+KEEP_EDITIONS = 10
 COLLECTIONS = ("votes", "saved", "feed_decisions")  # written by the page through the server
 PORT = 8765
 VERSION = str(Path(__file__).stat().st_mtime_ns)  # a running server older than this code gets restarted
@@ -346,16 +348,38 @@ def cmd_render(_):
             continue
         reason, note = reasons.get(i["id"], ("cut by editor", ""))
         dropped.append({"title": i["title"], "source": i["source"], "link": i["link"], "reason": reason, "note": note})
+    # A run's edition is named after when it fetched, so rendering again in the same run replaces it.
+    fetched = parse_date(new.get("fetched_at")) or now()
+    edition = fetched.astimezone().strftime("%Y-%m-%d-%H%M%S")
     page = {
-        "generated_at": now().isoformat(), "feeds": new.get("feeds", 0),
+        "edition": edition, "fetched_at": fetched.isoformat(), "generated_at": now().isoformat(), "feeds": new.get("feeds", 0),
         "scanned": len(new["items"]), "intro": digest.get("intro", ""),
         "items": kept, "dropped": dropped,
-        "suggestions": [s for s in load(SUGGESTIONS, []) if s["status"] == "pending"],
     }
+    save(EDITIONS / f"{edition}.json", page)
+    for old in sorted(EDITIONS.glob("*.json"))[:-KEEP_EDITIONS]:
+        old.unlink()
+    PAGE.write_text(page_html(page), encoding="utf-8")
+    print(f"{show_path(PAGE)}: {len(kept)} kept, {len(dropped)} dropped, {len(new['items'])} scanned; "
+          f"edition {edition}")
+
+
+def editions():
+    """Every kept edition, newest first, as the page's switcher lists them."""
+    out = []
+    for path in sorted(EDITIONS.glob("*.json"), reverse=True):
+        page = load(path, {})
+        out.append({"id": path.stem, "fetched_at": page.get("fetched_at") or page.get("generated_at"),
+                    "kept": len(page.get("items", [])), "scanned": page.get("scanned", 0)})
+    return out
+
+
+def page_html(page):
+    """An edition's page. The editions list and pending feed suggestions are always the current ones."""
+    page = {**page, "editions": editions(),
+            "suggestions": [s for s in load(SUGGESTIONS, []) if s["status"] == "pending"]}
     blob = json.dumps(page, ensure_ascii=False).replace("</", "<\\/")
-    template = (ROOT / "template.html").read_text(encoding="utf-8")
-    PAGE.write_text(template.replace("__DIGEST_JSON__", blob), encoding="utf-8")
-    print(f"{show_path(PAGE)}: {len(kept)} kept, {len(dropped)} dropped, {len(new['items'])} scanned")
+    return (ROOT / "template.html").read_text(encoding="utf-8").replace("__DIGEST_JSON__", blob)
 
 
 def cmd_commit(_):
@@ -544,8 +568,18 @@ class PageHandler(BaseHTTPRequestHandler):
             self.send_header("Location", "/feed")
             self.send_header("Content-Length", "0")
             return self.end_headers()
-        if path == "/feed":
-            if PAGE.exists():
+        if path == "/feed" or path.startswith("/feed/"):
+            wanted = path[len("/feed/"):]
+            if wanted and not re.fullmatch(r"[\w-]+", wanted):
+                return self.reply(404, "<p>No such edition.</p>", "text/html")
+            found = sorted(EDITIONS.glob("*.json"))
+            file = EDITIONS / f"{wanted}.json" if wanted else (found[-1] if found else None)
+            if file and file.exists():
+                return self.reply(200, page_html(load(file, {})), "text/html")
+            if wanted:
+                return self.reply(404, "<p>That edition is no longer kept. <a href=\"/feed\">Latest edition</a></p>",
+                                  "text/html")
+            if PAGE.exists():  # rendered before editions existed
                 return self.reply(200, PAGE.read_bytes(), "text/html")
             return self.reply(200, "<p>No paper yet. Run /feed in your agent CLI.</p>", "text/html")
         if path == "/api/ping":
