@@ -7,6 +7,10 @@ on:
     - cron: "0 7 * * *"  # daily, so a change on the internet (a feed format, YouTube) shows up even without commits
   workflow_dispatch:
 
+concurrency:  # a new push cancels the branch's older run instead of queueing behind it
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     strategy:
