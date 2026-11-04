@@ -33,6 +33,7 @@ network_access = true
 - **Every pick explained.** You get a clean title, what it says, why it fits you, the main arguments and conclusion, or for news, whether it changes anything.
 - **Claims checked.** News and factual pieces are checked against discussion threads and other coverage, and disputed ones are flagged or dropped.
 - **Every drop explained.** The bottom of the page lists everything that was filtered out and why (clickbait, promo, paywall, weak argument…).
+- **Your last 10 editions.** Flip back through earlier runs from the page header; each edition has its own link.
 - **It learns.** 👍/👎 on any item, and the next run updates your profile. Flag items to keep them in Saved.
 - **New sources.** Once a day it suggests feeds you might love, checked for quality and posting rate. Add or skip them from the page.
 
