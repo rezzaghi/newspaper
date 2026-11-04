@@ -27,20 +27,24 @@ class Server(DataTest):
 
     def serve(self, patch="pass"):
         """Start a page server, optionally with module patches applied first (to fake an old or sandboxed server)."""
-        code = (f"import sys; sys.path.insert(0, {str(ROOT)!r}); import newspaper as n; {patch}; "
+        # If the server is still not answering after 10s, faulthandler prints where it is stuck.
+        code = (f"import faulthandler, sys; faulthandler.dump_traceback_later(10); sys.path.insert(0, {str(ROOT)!r}); "
+                f"import newspaper as n; {patch}; print('listening', flush=True, file=sys.stderr); "
                 f"n.ThreadingHTTPServer(('127.0.0.1', {self.port}), n.PageHandler).serve_forever()")
         proc = subprocess.Popen([sys.executable, "-c", code], env=self.env, cwd=self.tmp,
                                 stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
         self.procs.append(proc)
-        deadline = time.monotonic() + 15
+        deadline, error = time.monotonic() + 15, None
         while time.monotonic() < deadline:
             if proc.poll() is not None:
                 self.fail(f"server exited:\n{proc.stderr.read()}")
             try:
                 return json.loads(http("GET", f"{self.base}/api/ping")[1])
-            except Exception:
+            except Exception as e:
+                error = e
                 time.sleep(0.1)
-        self.fail("server did not start within 15s")
+        proc.kill()
+        self.fail(f"server did not answer within 15s; last error: {error!r}\nserver stderr:\n{proc.communicate()[1]}")
 
     def ping(self):
         return json.loads(http("GET", f"{self.base}/api/ping")[1])
