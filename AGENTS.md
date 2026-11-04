@@ -75,3 +75,7 @@ Subtasks need web fetch (deep read) and web search (credibility check, scout). W
 ## Changing preferences
 
 When the reader says what they want more or less of ("less US politics", "more long history essays"), edit `data/profile.md`: Wants, Rejects or Balance for lasting rules. To follow or drop a source, edit `data/feeds.opml`; check a new one with `python newspaper.py probe <url>` first and use the `feed_url` it returns.
+
+## Changing newspaper itself
+
+When you change the engine (`newspaper.py`, `template.html`, `prompts/`, this file or the CLI shims), run `python -m unittest discover -s tests` and keep it passing. The page tests need Chrome; `NEWSPAPER_LIVE=1` adds tests against real feeds. CI runs everything on every push.

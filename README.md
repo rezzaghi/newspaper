@@ -29,7 +29,7 @@ network_access = true
 
 ## What you get
 
-- **A ranked page** in tabs: News (ranked by how much it could change your life), Articles, Essays, Videos, and *Might surprise you*, a few great things from outside your usual interests.
+- **A ranked page** in tabs: News (ranked by how much it could change your life), Articles, Essays, Videos, Podcasts, and *Might surprise you*, a few great things from outside your usual interests.
 - **Every pick explained.** You get a clean title, what it says, why it fits you, the main arguments and conclusion, or for news, whether it changes anything.
 - **Claims checked.** News and factual pieces are checked against discussion threads and other coverage, and disputed ones are flagged or dropped.
 - **Every drop explained.** The bottom of the page lists everything that was filtered out and why (clickbait, promo, paywall, weak argument…).
@@ -63,6 +63,14 @@ Everything that's yours lives in `data/`, which git ignores:
 ## Cost
 
 newspaper runs on your agent's subscription, so a run costs part of your plan's usage limits and nothing extra. A typical run scans 50 to 150 items and reads 10 to 40 of them in depth.
+
+## Tests
+
+```
+python -m unittest discover -s tests
+```
+
+These run the whole pipeline against local fixture feeds, the page server over real HTTP, and the rendered page in headless Chrome. They also check that the agent instructions match the engine. `NEWSPAPER_LIVE=1` adds checks against real feeds. GitHub Actions runs it all on Linux, Windows and macOS for every push and pull request, and daily.
 
 ## License
 
