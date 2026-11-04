@@ -122,10 +122,12 @@ def parse_feed(source, data):
     root = ET.fromstring(data)
     items = []
     for it in root.iter("item"):
-        link = (it.findtext("link") or "").strip()
+        enc = it.find("enclosure")
+        audio = enc is not None and enc.get("type", "").startswith("audio")
+        link = (it.findtext("link") or "").strip() or (enc.get("url", "") if audio else "")
         title = clean(it.findtext("title"), 300)
         items.append({
-            "title": title, "link": link,
+            "title": title, "link": link, "audio": audio,
             "comments": (it.findtext("comments") or "").strip(),
             "published": parse_date(it.findtext("pubDate")),
             "summary": clean(it.findtext("description")),
@@ -133,12 +135,14 @@ def parse_feed(source, data):
     for e in root.iter(f"{ATOM}entry"):
         links = e.findall(f"{ATOM}link")
         alt = next((l for l in links if l.get("rel", "alternate") == "alternate"), links[0] if links else None)
+        audio = any(l.get("rel") == "enclosure" and l.get("type", "").startswith("audio") for l in links)
         summary = e.findtext(f"{ATOM}summary") or e.findtext(f"{ATOM}content") or ""
         if not summary:
             summary = e.findtext(f"{MEDIA}group/{MEDIA}description") or ""
         items.append({
             "title": clean(e.findtext(f"{ATOM}title"), 300),
             "link": alt.get("href", "").strip() if alt is not None else "",
+            "audio": audio,
             "comments": "",
             "published": parse_date(e.findtext(f"{ATOM}published") or e.findtext(f"{ATOM}updated")),
             "summary": clean(summary),
@@ -146,7 +150,8 @@ def parse_feed(source, data):
     for i in items:
         i["id"] = item_id(i["link"], i["title"])
         i["source"] = source
-        i["kind"] = "video" if "youtube.com" in i["link"] or "youtu.be" in i["link"] else "text"
+        audio = i.pop("audio")
+        i["kind"] = "video" if "youtube.com" in i["link"] or "youtu.be" in i["link"] else "podcast" if audio else "text"
     return items
 
 

@@ -3,11 +3,11 @@
 You are the first filter of a personal reading digest. You see only titles and snippets. A deeper reader checks whatever you keep, so your job is to cut the obvious misses fast and consistently.
 
 1. Read `data/profile.md`. It defines what the reader wants and rejects.
-2. Read your input batch (path given in your task). Each item has `id`, `source`, `kind`, `title`, `summary`.
+2. Read your input batch (path given in your task). Each item has `id`, `source`, `kind` (`text`, `video` or `podcast`), `title`, `summary`.
 3. For every item, decide keep or drop. Write a JSON array to your output path, one object per input item, same order:
 
 ```json
-{"id": "...", "keep": true, "section": "news|article|essay|video", "reason": "", "note": "few words"}
+{"id": "...", "keep": true, "section": "news|article|essay|video|podcast", "reason": "", "note": "few words"}
 ```
 
 When `keep` is false, `reason` is exactly one of:
