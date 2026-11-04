@@ -3,6 +3,7 @@
 Everything the reader owns lives in data/ (or $NEWSPAPER_DATA): profile, feeds, history, votes.
 
   python newspaper.py init [--opml FILE]  create data/ for a new reader
+  python newspaper.py sections            the page's sections from data/sections.md, as JSON
   python newspaper.py fetch               new unseen items -> data/state/new_items.json
   python newspaper.py batches triage      split new items into triage batches
   python newspaper.py batches read        split items kept by triage into deep-read batches
@@ -54,6 +55,7 @@ DISCOVERY = STATE / "discovery.json"
 VOTES_APPLIED = STATE / "votes_applied.json"
 OPML = DATA / "feeds.opml"
 PROFILE = DATA / "profile.md"
+SECTIONS = DATA / "sections.md"
 PAGE = DATA / "digest.html"
 COLLECTIONS = ("votes", "saved", "feed_decisions")  # written by the page through the server
 PORT = 8765
@@ -248,6 +250,8 @@ def cmd_init(args):
         return
     DATA.mkdir(parents=True, exist_ok=True)
     shutil.copy(ROOT / "examples" / "profile.md", PROFILE)
+    if not SECTIONS.exists():
+        shutil.copy(ROOT / "examples" / "sections.md", SECTIONS)
     if args.opml:
         ET.parse(args.opml)  # fail early on a broken file
         shutil.copy(args.opml, OPML)
@@ -300,18 +304,70 @@ def read_outputs(prefix):
     return out
 
 
+def slug(text):
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-") or "section"
+
+
+def load_sections():
+    """Sections from data/sections.md (the default layout if there is none): one `## Title` per section,
+    a description paragraph and `- key: value` settings."""
+    path = SECTIONS if SECTIONS.exists() else ROOT / "examples" / "sections.md"
+    sections, cur = [], None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("## "):
+            title = line[3:].strip()
+            key = slug(title)
+            while any(x["key"] == key for x in sections):
+                key += "-2"
+            cur = {"key": key, "title": title, "desc": "", "order": "", "checks": "strict", "surprise": False, "max": None}
+            sections.append(cur)
+        elif cur is None or not line.strip():
+            continue
+        elif m := re.match(r"\s*[-*]\s*(\w+)\s*:\s*(.+)", line):
+            k, v = m.group(1).lower(), m.group(2).strip().strip("`")
+            if k == "surprise":
+                cur[k] = v.lower() in ("yes", "true", "on")
+            elif k == "max":
+                cur[k] = int(v) if v.isdigit() else None
+            elif k == "checks":
+                cur[k] = v.lower() if v.lower() in ("strict", "light", "off") else "strict"
+            else:
+                cur[k] = v
+        else:
+            cur["desc"] = (cur["desc"] + " " + line.strip()).strip()
+    if not sections:
+        sys.exit(f"{show_path(path)} has no sections: add at least one `## Title` heading")
+    return sections
+
+
+def cmd_sections(_):
+    print(json.dumps(load_sections(), ensure_ascii=False, indent=1))
+
+
 def cmd_batches(args):
     items = load(NEW, {"items": []})["items"]
+    sections = load_sections()
+    save(WORK / "sections.json", sections)  # the layout every subtask sorts items into
     if args.stage == "triage":
         fields = ("id", "source", "kind", "title", "summary")
         batch = [{k: i[k] for k in fields} for i in items]
         size = args.size or 60
     else:
-        triage = read_outputs("triage")
-        keep = {t["id"] for t in triage if t.get("keep")}
-        surprise = {t["id"] for t in triage if t.get("surprise") and not t.get("keep")}
-        batch = [i | {"surprise": True} if i["id"] in surprise else i
-                 for i in items if i["id"] in keep | surprise]
+        by_key = {x["key"]: x for x in sections}
+        surprise_key = next((x["key"] for x in sections if x["surprise"]), None)
+        batch = []
+        for t in read_outputs("triage"):
+            item = next((i for i in items if i["id"] == t["id"]), None)
+            if not item:
+                continue
+            if t.get("keep") and t.get("section") in by_key and not by_key[t["section"]]["surprise"]:
+                key = t["section"]
+            elif t.get("surprise") and surprise_key and not t.get("keep"):
+                key = surprise_key
+            else:
+                continue
+            batch.append(item | {"section": key, "checks": by_key[key]["checks"], "format": t.get("format"),
+                                 **({"surprise": True} if key == surprise_key else {})})
         size = args.size or 6
     for old in WORK.glob(f"{args.stage}_in_*.json"):
         old.unlink()
@@ -326,8 +382,19 @@ def cmd_render(_):
     new = load(NEW, {"items": [], "feeds": 0})
     by_id = {i["id"]: i for i in new["items"]}
     digest = load(DIGEST, {"intro": "", "items": []})
-    kept = []
+    sections = load_sections()
+    by_key = {x["key"]: x for x in sections}
+    kept, counts, cut = [], {}, {}
     for d in digest["items"]:
+        sec = by_key.get(d.get("section"))
+        if not sec:
+            print(f"  not on the page: unknown section {d.get('section')!r} for {d.get('title')!r}", file=sys.stderr)
+            cut[d["id"]] = ("no-section", f"section {d.get('section')!r} is not in sections.md")
+            continue
+        counts[sec["key"]] = counts.get(sec["key"], 0) + 1
+        if sec["max"] and counts[sec["key"]] > sec["max"]:
+            cut[d["id"]] = ("cut by editor", f"over the {sec['title']} limit of {sec['max']}")
+            continue
         base = by_id.get(d["id"], {})
         kept.append({**{k: base.get(k) for k in ("source", "link", "comments", "published", "kind")}, **d})
     kept_ids = {k["id"] for k in kept}
@@ -335,6 +402,9 @@ def cmd_render(_):
     for r in read_outputs("triage") + read_outputs("read"):
         if not r.get("keep"):
             reasons[r["id"]] = (r.get("reason") or r.get("drop_reason") or "other", r.get("note", ""))
+        elif r.get("section") not in by_key:
+            reasons[r["id"]] = ("no-section", f"section {r.get('section')!r} is not in sections.md")
+    reasons.update(cut)
     dropped = []
     for i in new["items"]:
         if i["id"] in kept_ids:
@@ -344,7 +414,7 @@ def cmd_render(_):
     page = {
         "generated_at": now().isoformat(), "feeds": new.get("feeds", 0),
         "scanned": len(new["items"]), "intro": digest.get("intro", ""),
-        "items": kept, "dropped": dropped,
+        "sections": sections, "items": kept, "dropped": dropped,
         "suggestions": [s for s in load(SUGGESTIONS, []) if s["status"] == "pending"],
     }
     blob = json.dumps(page, ensure_ascii=False).replace("</", "<\\/")
@@ -651,6 +721,7 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     it = sub.add_parser("init")
     it.add_argument("--opml")
+    sub.add_parser("sections")
     sub.add_parser("fetch")
     b = sub.add_parser("batches")
     b.add_argument("stage", choices=["triage", "read"])
@@ -673,7 +744,7 @@ def main():
         if name == "open":
             p.add_argument("--no-browser", action="store_true")
     args = ap.parse_args()
-    {"init": cmd_init, "fetch": cmd_fetch, "batches": cmd_batches, "render": cmd_render, "commit": cmd_commit,
+    {"init": cmd_init, "sections": cmd_sections, "fetch": cmd_fetch, "batches": cmd_batches, "render": cmd_render, "commit": cmd_commit,
      "votes": cmd_votes, "apply-decisions": cmd_apply_decisions, "signals": cmd_signals, "probe": cmd_probe,
      "discover-due": cmd_discover_due, "suggest": cmd_suggest, "serve": cmd_serve, "open": cmd_open}[args.cmd](args)
 
