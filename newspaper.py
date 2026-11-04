@@ -26,6 +26,7 @@ import re
 import shutil
 import signal
 import socket
+import socketserver
 import subprocess
 import sys
 import threading
@@ -545,6 +546,14 @@ def cmd_suggest(args):
 LOCK = threading.Lock()
 
 
+class PageServer(ThreadingHTTPServer):
+    def server_bind(self):
+        # HTTPServer looks up this machine's full DNS name here, which can hang for many seconds on macOS.
+        # The page never uses that name.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+
+
 class PageHandler(BaseHTTPRequestHandler):
     def reply(self, code, body, kind="application/json"):
         data = body.encode("utf-8") if isinstance(body, str) else body
@@ -649,7 +658,7 @@ def page_url(port):
 
 def cmd_serve(args):
     print(f"serving {page_url(args.port)}  (Ctrl+C to stop)", flush=True)
-    ThreadingHTTPServer(("127.0.0.1", args.port), PageHandler).serve_forever()
+    PageServer(("127.0.0.1", args.port), PageHandler).serve_forever()
 
 
 def cmd_open(args):
